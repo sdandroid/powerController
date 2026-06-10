@@ -43,9 +43,9 @@
           <span class="muted">实时电池电压</span>
         </article>
         <article class="card metric">
-          <span class="label">电流</span>
+          <span class="label">电池电流</span>
           <strong id="current">--</strong>
-          <span class="muted">正负方向由内核定义</span>
+          <span id="current-source" class="muted">电池输入/输出实时电流</span>
         </article>
         <article class="card metric">
           <span class="label">温度</span>
@@ -58,23 +58,18 @@
         <div class="section-title">
           <div>
             <span class="label">阈值设置</span>
-            <h2>充电区间</h2>
+            <h2>充电上限</h2>
           </div>
           <span class="muted">保存后 10 秒内生效</span>
         </div>
 
         <form id="config-form">
-          <label for="upper-limit">
+          <label for="charge-limit">
             <span>充电上限</span>
-            <span><output id="upper-output">91</output>%</span>
+            <span><output id="limit-output">91</output>%</span>
           </label>
-          <input id="upper-limit" name="upper" type="range" min="1" max="100" value="91">
-
-          <label for="lower-limit">
-            <span>恢复下限</span>
-            <span><output id="lower-output">78</output>%</span>
-          </label>
-          <input id="lower-limit" name="lower" type="range" min="0" max="99" value="78">
+          <input id="charge-limit" name="limit" type="range" min="0" max="100" value="91">
+          <p class="muted">低于上限时正常充电，达到或超过上限时进入旁路。</p>
 
           <p id="form-error" class="error" role="alert"></p>
           <button id="save-button" type="submit">保存配置</button>

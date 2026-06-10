@@ -6,24 +6,17 @@ case "$0" in
 esac
 . "$MODDIR/power-data.sh"
 
-UPPER_LIMIT="$1"
-LOWER_LIMIT="$2"
+CHARGE_LIMIT="$1"
 
-if ! is_percentage "$UPPER_LIMIT" || ! is_percentage "$LOWER_LIMIT"; then
-    echo "上下限必须是 0 到 100 的整数" >&2
-    exit 2
-fi
-
-if [ "$UPPER_LIMIT" -le "$LOWER_LIMIT" ]; then
-    echo "充电上限必须大于恢复下限" >&2
+if ! is_percentage "$CHARGE_LIMIT"; then
+    echo "充电上限必须是 0 到 100 的整数" >&2
     exit 2
 fi
 
 TMP_FILE="$CONFIG_FILE.tmp.$$"
 umask 022
 if ! {
-    printf 'UPPER_LIMIT=%s\n' "$UPPER_LIMIT"
-    printf 'LOWER_LIMIT=%s\n' "$LOWER_LIMIT"
+    printf 'CHARGE_LIMIT=%s\n' "$CHARGE_LIMIT"
 } > "$TMP_FILE"; then
     echo "无法写入临时配置文件" >&2
     rm -f "$TMP_FILE"

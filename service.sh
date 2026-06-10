@@ -47,9 +47,8 @@ log "已执行安全兜底：默认恢复充电能力"
 while true; do
 
     if [ ! -f "$CONFIG_FILE" ]; then
-        echo "UPPER_LIMIT=$DEFAULT_UPPER_LIMIT" > "$CONFIG_FILE"
-        echo "LOWER_LIMIT=$DEFAULT_LOWER_LIMIT" >> "$CONFIG_FILE"
-        log "未找到配置文件，已自动生成 config.txt 并写入默认值 91/78。"
+        echo "CHARGE_LIMIT=$DEFAULT_CHARGE_LIMIT" > "$CONFIG_FILE"
+        log "未找到配置文件，已自动生成 config.txt 并写入默认充电上限 91%。"
     fi
 
     load_power_data
@@ -68,29 +67,17 @@ while true; do
                 LAST_STATE="UNPLUGGED"
             fi
         else
-            if [ "$CAPACITY" -ge "$UPPER_LIMIT" ]; then
+            if [ "$CAPACITY" -ge "$CHARGE_LIMIT" ]; then
                 if [ "$LAST_STATE" != "BYPASS_ON" ]; then
                     echo 0 > "$BYPASS_NODE"
-                    log "电量达到 $CAPACITY% (>= 设定上限 $UPPER_LIMIT%)，触发旁路供电"
+                    log "电量为 $CAPACITY% (>= 充电上限 $CHARGE_LIMIT%)，进入旁路供电。"
                     LAST_STATE="BYPASS_ON"
                 fi
-            elif [ "$CAPACITY" -le "$LOWER_LIMIT" ]; then
+            else
                 if [ "$LAST_STATE" != "CHARGING" ]; then
                     echo 1 > "$BYPASS_NODE"
-                    log "电量降至 $CAPACITY% (<= 设定下限 $LOWER_LIMIT%)，恢复快速充电。"
+                    log "电量为 $CAPACITY% (< 充电上限 $CHARGE_LIMIT%)，允许正常充电。"
                     LAST_STATE="CHARGING"
-                fi
-            else
-                if [ "$LAST_STATE" = "BYPASS_ON" ] || [ "$LAST_STATE" = "WAITING_DOWN" ]; then
-                    if [ "$LAST_STATE" != "WAITING_DOWN" ]; then
-                        log "电量为 $CAPACITY%，位于区间内，维持旁路状态，等待降至 $LOWER_LIMIT%。"
-                        LAST_STATE="WAITING_DOWN"
-                    fi
-                else
-                    if [ "$LAST_STATE" != "WAITING_UP" ]; then
-                        log "电量为 $CAPACITY%，位于区间内，维持充电状态，等待充至 $UPPER_LIMIT%。"
-                        LAST_STATE="WAITING_UP"
-                    fi
                 fi
             fi
         fi

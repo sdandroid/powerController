@@ -13,15 +13,14 @@ const elements = {
   bypass: document.querySelector("#bypass-enabled"),
   voltage: document.querySelector("#voltage"),
   current: document.querySelector("#current"),
+  currentSource: document.querySelector("#current-source"),
   temperature: document.querySelector("#temperature"),
   updated: document.querySelector("#last-update"),
   form: document.querySelector("#config-form"),
   error: document.querySelector("#form-error"),
   save: document.querySelector("#save-button"),
-  upper: document.querySelector("#upper-limit"),
-  lower: document.querySelector("#lower-limit"),
-  upperOutput: document.querySelector("#upper-output"),
-  lowerOutput: document.querySelector("#lower-output"),
+  limit: document.querySelector("#charge-limit"),
+  limitOutput: document.querySelector("#limit-output"),
 };
 
 let formDirty = false;
@@ -46,6 +45,16 @@ function formatMetric(value, divisor, unit) {
   return `${(numeric / divisor).toFixed(divisor === 1 ? 0 : 2)} ${unit}`;
 }
 
+function formatCurrent(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return "不可用";
+
+  const normalized = Object.is(numeric, -0) ? 0 : numeric;
+  const absolute = Math.abs(normalized);
+  const digits = absolute >= 100 ? 0 : absolute >= 10 ? 1 : absolute >= 1 ? 2 : 3;
+  return `${normalized.toFixed(digits)} mA`;
+}
+
 function stateLabel(state) {
   return {
     UNPLUGGED: "未连接电源",
@@ -62,15 +71,13 @@ function onlineLabel(value) {
 }
 
 function updateFormOutputs() {
-  elements.upperOutput.value = elements.upper.value;
-  elements.lowerOutput.value = elements.lower.value;
+  elements.limitOutput.value = elements.limit.value;
 }
 
 function validateForm() {
-  const upper = Number(elements.upper.value);
-  const lower = Number(elements.lower.value);
-  const valid = Number.isInteger(upper) && Number.isInteger(lower) && upper > lower;
-  elements.error.textContent = valid ? "" : "充电上限必须大于恢复下限";
+  const limit = Number(elements.limit.value);
+  const valid = Number.isInteger(limit) && limit >= 0 && limit <= 100;
+  elements.error.textContent = valid ? "" : "充电上限必须是 0 到 100 的整数";
   elements.save.disabled = !valid;
   return valid;
 }
@@ -88,13 +95,16 @@ function render(status) {
         ? "1 · 允许充电"
         : "不可用";
   elements.voltage.textContent = formatMetric(status.VOLTAGE_NOW, 1_000_000, "V");
-  elements.current.textContent = formatMetric(status.CURRENT_NOW, 1_000_000, "A");
+  elements.current.textContent = formatCurrent(status.CURRENT_NOW_MA);
+  elements.currentSource.textContent =
+    status.CURRENT_NOW_SOURCE === "battery/current_now"
+      ? "电池输入/输出实时电流"
+      : `数据源：${status.CURRENT_NOW_SOURCE}`;
   elements.temperature.textContent = formatMetric(status.TEMPERATURE, 10, "°C");
   elements.updated.textContent = `最后更新：${new Date().toLocaleTimeString("zh-CN")}`;
 
   if (!formDirty) {
-    elements.upper.value = status.UPPER_LIMIT;
-    elements.lower.value = status.LOWER_LIMIT;
+    elements.limit.value = status.CHARGE_LIMIT;
     updateFormOutputs();
     validateForm();
   }
@@ -113,13 +123,7 @@ async function refreshStatus(showError = false) {
   }
 }
 
-elements.upper.addEventListener("input", () => {
-  formDirty = true;
-  updateFormOutputs();
-  validateForm();
-});
-
-elements.lower.addEventListener("input", () => {
+elements.limit.addEventListener("input", () => {
   formDirty = true;
   updateFormOutputs();
   validateForm();
@@ -133,9 +137,8 @@ elements.form.addEventListener("submit", async (event) => {
   elements.save.textContent = "正在保存...";
 
   try {
-    const upper = Number(elements.upper.value);
-    const lower = Number(elements.lower.value);
-    const result = await exec(`${SET_CONFIG_COMMAND} ${upper} ${lower}`);
+    const limit = Number(elements.limit.value);
+    const result = await exec(`${SET_CONFIG_COMMAND} ${limit}`);
     if (result.errno !== 0) {
       throw new Error(result.stderr || `保存失败 (${result.errno})`);
     }

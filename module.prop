@@ -3,4 +3,4 @@ name=一加pad2pro旁路充电控制
 version=v92.0
 versionCode=79
 author=wind1
-description=适配 Magisk/KernelSU，支持 WebUI 查看充电器、充电和旁路状态，并可修改充电上下限。默认大于等于91%进入旁路，低于等于78%恢复充电。
+description=适配 Magisk/KernelSU，支持 WebUI 查看充电器、充电和旁路状态，并可修改充电上限。低于上限正常充电，达到或超过上限进入旁路。

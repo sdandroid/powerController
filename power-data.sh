@@ -1,7 +1,6 @@
 #!/system/bin/sh
 
-DEFAULT_UPPER_LIMIT=91
-DEFAULT_LOWER_LIMIT=78
+DEFAULT_CHARGE_LIMIT=91
 
 CONFIG_FILE="$MODDIR/config.txt"
 BYPASS_NODE="/sys/devices/virtual/oplus_chg/battery/mmi_charging_enable"
@@ -10,7 +9,6 @@ USB_DIR="/sys/class/power_supply/usb"
 CAPACITY_NODE="$BATTERY_DIR/capacity"
 BATTERY_STATUS_NODE="$BATTERY_DIR/status"
 VOLTAGE_NOW_NODE="$BATTERY_DIR/voltage_now"
-CURRENT_NOW_NODE="$BATTERY_DIR/current_now"
 TEMPERATURE_NODE="$BATTERY_DIR/temp"
 USB_ONLINE_NODE="$USB_DIR/online"
 
@@ -21,6 +19,9 @@ elif [ -r "$USB_DIR/usb_type" ]; then
 else
     USB_TYPE_NODE="$USB_DIR/type"
 fi
+
+CURRENT_NOW_NODE="$BATTERY_DIR/current_now"
+CURRENT_NOW_SOURCE="battery/current_now"
 
 read_node() {
     if [ -r "$1" ]; then
@@ -43,15 +44,16 @@ is_percentage() {
     [ "$1" -ge 0 ] && [ "$1" -le 100 ]
 }
 
-load_limits() {
-    UPPER_LIMIT=$(read_config_value UPPER_LIMIT)
-    LOWER_LIMIT=$(read_config_value LOWER_LIMIT)
+load_charge_limit() {
+    CHARGE_LIMIT=$(read_config_value CHARGE_LIMIT)
 
-    if ! is_percentage "$UPPER_LIMIT" ||
-        ! is_percentage "$LOWER_LIMIT" ||
-        [ "$UPPER_LIMIT" -le "$LOWER_LIMIT" ]; then
-        UPPER_LIMIT=$DEFAULT_UPPER_LIMIT
-        LOWER_LIMIT=$DEFAULT_LOWER_LIMIT
+    # Migrate existing installations that still use UPPER_LIMIT.
+    if ! is_percentage "$CHARGE_LIMIT"; then
+        CHARGE_LIMIT=$(read_config_value UPPER_LIMIT)
+    fi
+
+    if ! is_percentage "$CHARGE_LIMIT"; then
+        CHARGE_LIMIT=$DEFAULT_CHARGE_LIMIT
     fi
 }
 
@@ -67,14 +69,33 @@ read_usb_type() {
     esac
 }
 
+normalize_current_ma() {
+    case "$1" in
+        ''|N/A|*[!0-9-]*)
+            printf '%s' "N/A"
+            return
+            ;;
+    esac
+
+    ABS_CURRENT=${1#-}
+
+    # Mainline power_supply uses uA, while some OPlus nodes expose mA.
+    if [ "$ABS_CURRENT" -ge 10000 ]; then
+        awk -v value="$1" 'BEGIN { printf "%.0f", value / 1000 }'
+    else
+        printf '%s' "$1"
+    fi
+}
+
 load_power_data() {
-    load_limits
+    load_charge_limit
     CAPACITY=$(read_node "$CAPACITY_NODE")
     BATTERY_STATUS=$(read_node "$BATTERY_STATUS_NODE")
     USB_ONLINE=$(read_node "$USB_ONLINE_NODE")
     USB_TYPE=$(read_usb_type)
     VOLTAGE_NOW=$(read_node "$VOLTAGE_NOW_NODE")
-    CURRENT_NOW=$(read_node "$CURRENT_NOW_NODE")
+    CURRENT_NOW_RAW=$(read_node "$CURRENT_NOW_NODE")
+    CURRENT_NOW_MA=$(normalize_current_ma "$CURRENT_NOW_RAW")
     TEMPERATURE=$(read_node "$TEMPERATURE_NODE")
     BYPASS_ENABLED=$(read_node "$BYPASS_NODE")
 
