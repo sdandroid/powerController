@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light dark">
+    <title>旁路充电控制</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main class="page">
+      <header>
+        <p class="eyebrow">OPLUS POWER CONTROLLER</p>
+        <h1>旁路充电控制</h1>
+        <p id="last-update" class="muted">正在读取设备状态...</p>
+      </header>
+
+      <section class="hero card">
+        <div>
+          <span class="label">控制器状态</span>
+          <strong id="controller-state" class="state">读取中</strong>
+          <span id="battery-status" class="muted">--</span>
+        </div>
+        <div class="battery">
+          <span id="capacity">--</span><small>%</small>
+        </div>
+      </section>
+
+      <section class="metrics">
+        <article class="card metric">
+          <span class="label">充电器</span>
+          <strong id="usb-online">--</strong>
+          <span id="usb-type" class="muted">--</span>
+        </article>
+        <article class="card metric">
+          <span class="label">旁路节点</span>
+          <strong id="bypass-enabled">--</strong>
+          <span class="muted">mmi_charging_enable</span>
+        </article>
+        <article class="card metric">
+          <span class="label">电压</span>
+          <strong id="voltage">--</strong>
+          <span class="muted">实时电池电压</span>
+        </article>
+        <article class="card metric">
+          <span class="label">电流</span>
+          <strong id="current">--</strong>
+          <span class="muted">正负方向由内核定义</span>
+        </article>
+        <article class="card metric">
+          <span class="label">温度</span>
+          <strong id="temperature">--</strong>
+          <span class="muted">电池温度</span>
+        </article>
+      </section>
+
+      <section class="card settings">
+        <div class="section-title">
+          <div>
+            <span class="label">阈值设置</span>
+            <h2>充电区间</h2>
+          </div>
+          <span class="muted">保存后 10 秒内生效</span>
+        </div>
+
+        <form id="config-form">
+          <label for="upper-limit">
+            <span>充电上限</span>
+            <span><output id="upper-output">91</output>%</span>
+          </label>
+          <input id="upper-limit" name="upper" type="range" min="1" max="100" value="91">
+
+          <label for="lower-limit">
+            <span>恢复下限</span>
+            <span><output id="lower-output">78</output>%</span>
+          </label>
+          <input id="lower-limit" name="lower" type="range" min="0" max="99" value="78">
+
+          <p id="form-error" class="error" role="alert"></p>
+          <button id="save-button" type="submit">保存配置</button>
+        </form>
+      </section>
+    </main>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
