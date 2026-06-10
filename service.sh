@@ -13,6 +13,8 @@ MAX_SIZE=1048576
 LOG_FILE="$MODDIR/bypass.log"
 
 LAST_STATE=""
+OFFLINE_FULL_CHECK_INTERVAL=300
+OFFLINE_USB_CHECK_INTERVAL=10
 
 # ==============================
 # 辅助函数定义
@@ -60,12 +62,26 @@ while true; do
             LAST_STATE="DISABLED"
         fi
     else
-        if [ "$USB_ONLINE" -eq 0 ]; then
+        if [ "$USB_ONLINE" != "1" ]; then
             if [ "$LAST_STATE" != "UNPLUGGED" ]; then
                 echo 1 > "$BYPASS_NODE"
                 log "充电器已拔出 (电量 $CAPACITY%)，重置节点为可充电状态。"
                 LAST_STATE="UNPLUGGED"
             fi
+
+            # Only poll the USB online node every 10 seconds while unplugged.
+            # Run the full battery/config check every 300 seconds.
+            OFFLINE_WAITED=0
+            while [ "$OFFLINE_WAITED" -lt "$OFFLINE_FULL_CHECK_INTERVAL" ]; do
+                sleep "$OFFLINE_USB_CHECK_INTERVAL"
+                USB_ONLINE=$(read_node "$USB_ONLINE_NODE")
+                if [ "$USB_ONLINE" = "1" ]; then
+                    log "检测到充电器接入，立即恢复每秒充电控制。"
+                    break
+                fi
+                OFFLINE_WAITED=$((OFFLINE_WAITED + OFFLINE_USB_CHECK_INTERVAL))
+            done
+            continue
         else
             if [ "$CAPACITY" -ge "$CHARGE_LIMIT" ]; then
                 if [ "$LAST_STATE" != "BYPASS_ON" ]; then
@@ -91,5 +107,5 @@ while true; do
         fi
     fi
     
-    sleep 10
+    sleep 1
 done

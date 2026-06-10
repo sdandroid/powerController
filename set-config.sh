@@ -29,4 +29,4 @@ if ! mv -f "$TMP_FILE" "$CONFIG_FILE"; then
     exit 1
 fi
 
-echo "配置已保存，守护进程将在 10 秒内应用"
+echo "配置已保存；连接充电器时 1 秒内应用"
