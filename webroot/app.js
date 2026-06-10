@@ -2,7 +2,11 @@ import { exec, toast } from "./kernelsu.js";
 
 const MODULE_DIR = "/data/adb/modules/oplusPowerController";
 const STATUS_COMMAND = `sh ${MODULE_DIR}/get-status.sh`;
+const USB_ONLINE_COMMAND = `sh ${MODULE_DIR}/get-usb-online.sh`;
 const SET_CONFIG_COMMAND = `sh ${MODULE_DIR}/set-config.sh`;
+const ONLINE_REFRESH_MS = 1_000;
+const OFFLINE_USB_REFRESH_MS = 10_000;
+const OFFLINE_FULL_REFRESH_MS = 300_000;
 
 const elements = {
   state: document.querySelector("#controller-state"),
@@ -24,6 +28,9 @@ const elements = {
 };
 
 let formDirty = false;
+let refreshTimer;
+let usbOnline = "N/A";
+let lastFullRefresh = 0;
 
 function parseStatus(text) {
   return Object.fromEntries(
@@ -83,6 +90,8 @@ function validateForm() {
 }
 
 function render(status) {
+  usbOnline = status.USB_ONLINE;
+  lastFullRefresh = Date.now();
   elements.state.textContent = stateLabel(status.CONTROLLER_STATE);
   elements.capacity.textContent = status.CAPACITY === "N/A" ? "--" : status.CAPACITY;
   elements.batteryStatus.textContent = `系统状态：${status.BATTERY_STATUS}`;
@@ -123,6 +132,43 @@ async function refreshStatus(showError = false) {
   }
 }
 
+async function refreshUsbOnline() {
+  try {
+    const result = await exec(USB_ONLINE_COMMAND);
+    if (result.errno !== 0) {
+      throw new Error(result.stderr || `USB 状态读取失败 (${result.errno})`);
+    }
+
+    const nextUsbOnline = result.stdout.trim();
+    elements.usbOnline.textContent = onlineLabel(nextUsbOnline);
+
+    if (nextUsbOnline === "1") {
+      await refreshStatus(false);
+    } else {
+      usbOnline = nextUsbOnline;
+      elements.state.textContent = stateLabel("UNPLUGGED");
+      if (Date.now() - lastFullRefresh >= OFFLINE_FULL_REFRESH_MS) {
+        await refreshStatus(false);
+      }
+    }
+  } catch (error) {
+    elements.updated.textContent = "无法读取 USB 状态";
+  }
+}
+
+function scheduleRefresh() {
+  window.clearTimeout(refreshTimer);
+  const delay = usbOnline === "1" ? ONLINE_REFRESH_MS : OFFLINE_USB_REFRESH_MS;
+  refreshTimer = window.setTimeout(async () => {
+    if (usbOnline === "1") {
+      await refreshStatus(false);
+    } else {
+      await refreshUsbOnline();
+    }
+    scheduleRefresh();
+  }, delay);
+}
+
 elements.limit.addEventListener("input", () => {
   formDirty = true;
   updateFormOutputs();
@@ -154,5 +200,9 @@ elements.form.addEventListener("submit", async (event) => {
   }
 });
 
-refreshStatus(true);
-window.setInterval(() => refreshStatus(false), 5000);
+async function initialize() {
+  await refreshStatus(true);
+  scheduleRefresh();
+}
+
+initialize();
